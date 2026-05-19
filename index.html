@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat App - Password Toggle</title>
+    <title>Chat App - Auto Login & Fixes</title>
     <style>
         body { font-family: sans-serif; margin: 0; padding: 0; background: #f0f2f5; }
         .container { max-width: 450px; margin: auto; background: white; height: 100vh; position: relative; display: flex; flex-direction: column; overflow: hidden; }
@@ -65,7 +65,6 @@
 <body>
 
 <div class="container">
-    <!-- Auth Section -->
     <div id="auth-section">
         <div class="form-box">
             <h2>Create Account</h2>
@@ -88,7 +87,6 @@
         </div>
     </div>
 
-    <!-- Main App Section -->
     <div id="app-section" class="hidden">
         <div class="top-bar" id="top-bar">
             <div class="bell-icon" onclick="toggleNoti()">🔔<span id="noti-badge" class="badge">0</span></div>
@@ -103,12 +101,10 @@
             <div id="req-list">No requests</div>
         </div>
 
-        <!-- Chat Tab -->
         <div id="tab-chat-content" class="content-area active-content">
             <div id="friend-list-container"></div>
         </div>
 
-        <!-- Private Chat Room -->
         <div id="chat-room">
             <div class="chat-header">
                 <span class="back-btn" onclick="closeChat()">⬅</span>
@@ -122,7 +118,6 @@
             </div>
         </div>
 
-        <!-- Account Tab -->
         <div id="tab-account-content" class="content-area" style="padding: 20px;">
             <h2>Profile Settings</h2>
             <p>Username: <b id="acc-username"></b></p>
@@ -133,13 +128,11 @@
             <button style="background: #dc3545;" onclick="logout()">Log Out</button>
         </div>
 
-        <!-- Admin Tab -->
         <div id="tab-admin-content" class="content-area" style="padding: 20px; background: #f8f9fa;">
             <h2 style="color: #dc3545;">Admin Panel</h2>
             <div id="admin-user-list"></div>
         </div>
 
-        <!-- Tabs -->
         <div class="bottom-tabs">
             <div class="tab active" id="btn-chat" onclick="switchTab('chat')">Chat</div>
             <div class="tab" id="btn-account" onclick="switchTab('account')">Account</div>
@@ -157,32 +150,39 @@
     let currentUser = null;
     let activeChatFriend = null;
 
-    // --- Helper Functions ---
     function getUsers() { return JSON.parse(localStorage.getItem('appUsers')); }
     function saveUsers(users) { localStorage.setItem('appUsers', JSON.stringify(users)); }
 
-    // --- Password Toggle Logic ---
     function togglePassVisibility(inputId, eyeIcon) {
         const passInput = document.getElementById(inputId);
         if (passInput.type === "password") {
             passInput.type = "text";
-            eyeIcon.innerText = "🙈"; // မျက်လုံးပိတ်ပုံ
+            eyeIcon.innerText = "🙈";
         } else {
             passInput.type = "password";
-            eyeIcon.innerText = "👁️"; // မျက်လုံးဖွင့်ပုံ
+            eyeIcon.innerText = "👁️";
         }
     }
 
-    // --- Authentication ---
+    // --- Create Account (Modified for Auto Login) ---
     function register() {
         const u = document.getElementById('reg-user').value.trim();
         const p = document.getElementById('reg-pass').value;
         if(!u || p.length < 8) return alert("စာအကုန်ဖြည့်ပါ။ Password အနည်းဆုံး ၈ လုံးထားပါ။");
         let users = getUsers();
         if(users.find(x => x.username === u)) return alert("ဒီနာမည်နဲ့ အကောင့်ရှိပြီးသားပါ။");
-        users.push({ username: u, password: p, nickname: u, banned: false, requests: [], friends: [] });
+        
+        let newUser = { username: u, password: p, nickname: u, banned: false, requests: [], friends: [] };
+        users.push(newUser);
         saveUsers(users);
-        alert("Account ဖွင့်ပြီးပါပြီ။ Log In ဝင်နိုင်ပါပြီ။");
+        alert("Account ဆောက်ပြီးပါပြီ။ တိုက်ရိုက် Log In ဝင်လိုက်ပါမယ်။");
+
+        // စာရိုက်တဲ့ အကွက်တွေကို ရှင်းထုတ်မယ်
+        document.getElementById('reg-user').value = '';
+        document.getElementById('reg-pass').value = '';
+
+        // Auto Login တန်းဝင်စေမယ့် အပိုင်း
+        startUserSession(newUser);
     }
 
     function login() {
@@ -193,6 +193,11 @@
         if(!user) return alert("Username သို့မဟုတ် Password မှားနေပါတယ်။");
         if(user.banned) return alert("သင့်အကောင့် Ban ခံထားရပါတယ်။");
         
+        startUserSession(user);
+    }
+
+    // Login နဲ့ Register ပြီးရင် App ထဲ တန်းဝင်ဖို့ သီးသန့် function ခွဲထုတ်လိုက်တာပါ
+    function startUserSession(user) {
         currentUser = user;
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('app-section').classList.remove('hidden');
@@ -202,13 +207,14 @@
         if(currentUser.username === 'glander') {
             document.getElementById('btn-admin').classList.remove('hidden');
             loadAdminPanel();
+        } else {
+            document.getElementById('btn-admin').classList.add('hidden');
         }
         updateFriendList();
         updateNotiUI();
         switchTab('chat');
     }
 
-    // --- UI Navigation ---
     function switchTab(tabName) {
         document.querySelectorAll('.content-area').forEach(el => el.classList.remove('active-content'));
         document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
@@ -222,7 +228,7 @@
         let users = getUsers();
         let me = users.find(u => u.username === currentUser.username);
         let listDiv = document.getElementById('friend-list-container');
-        listDiv.innerHTML = me.friends.length ? '' : '<p style="text-align:center; color:gray; padding:20px;">သူငယ်ချင်း မရှိသေးပါ။</p>';
+        listDiv.innerHTML = me.friends.length ? '' : '<p style="text-align:center; color:gray; padding-top:20px;">သူငယ်ချင်း မရှိသေးပါ။</p>';
         me.friends.forEach(fName => {
             listDiv.innerHTML += `<div class="friend-item" onclick="openChat('${fName}')">
                 <span>👤 ${fName}</span>
@@ -258,7 +264,6 @@
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    // --- Social Features ---
     function sendRequest() {
         let target = document.getElementById('search-input').value.trim();
         if(!target || target === currentUser.username) return;
@@ -317,7 +322,6 @@
         alert("Nickname ပြောင်းပြီးပါပြီ။");
     }
 
-    // --- Admin Functions ---
     function loadAdminPanel() {
         let users = getUsers();
         let list = document.getElementById('admin-user-list');
